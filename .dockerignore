@@ -1,0 +1,6 @@
+.git
+.gitignore
+.gitlab-ci.yml
+.releaserc.json
+README.md
+target

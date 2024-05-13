@@ -1,0 +1,7 @@
+---
+apiVersion: v2
+name: kube-stats-exporter
+description: A Helm Chart for Prometheus kube-stats-exporter
+type: application
+version: 0.1.0
+appVersion: 0.1.0

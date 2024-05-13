@@ -1,0 +1,55 @@
+---
+namespace: kube-stats-exporter
+
+env:
+  API_HOST: kubernetes.default.svc
+
+replicaCount: 1
+
+image:
+  repository: ghcr.io/phenomenes/kube-stats-exporter
+  pullPolicy: Always
+  tag: 0.1.0
+
+imagePullSecrets: []
+nameOverride: ''
+fullnameOverride: ''
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: kube-stats-exporter
+
+podAnnotations: {}
+
+service:
+  type: ClusterIP
+  port: 9100
+
+resources:
+  limits:
+    cpu: 50m
+    memory: 150Mi
+  requests:
+    cpu: 10m
+    memory: 50Mi
+
+autoscaling:
+  enabled: false
+
+serviceMonitor:
+  enabled: true
+  additionalMetricsRelabels: {}
+  labels: {}
+  interval: 30s
+  scrapeTimeout: 30s
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
