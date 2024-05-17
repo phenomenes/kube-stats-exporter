@@ -26,13 +26,18 @@ use url::Url;
 const SERVICE_ACCOUNT_TOKEN: &str = "/var/run/secrets/kubernetes.io/serviceaccount/token";
 const CLIENT_CERT_BUNDLE: &str = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt";
 
-// NodeStat represents stats for a single node. It holds the deserialized
+// NodeStats represents stats for a single node. It holds the deserialized
 // JSON response from the Kubernetes API
 #[derive(Deserialize, Debug)]
-struct NodeStat {
-    #[serde(skip)]
-    node_name: String,
+struct NodeStats {
+    node: NodeSummary,
     pods: Vec<Pod>,
+}
+
+#[derive(Deserialize, Debug)]
+struct NodeSummary {
+    #[serde(rename = "nodeName")]
+    name: String,
 }
 
 // Pod represents a single pod. It holds the pod's metadata and ephemeral
@@ -121,7 +126,7 @@ impl BuildInfoMetrics {
 }
 
 // This function sends a request to the Kubernetes API and to get the node
-// stats and returns the ephemeral storage
+// stats and returns the ephemeral storage metrics
 async fn get_stats() -> Result<String> {
     // create a Client to connect to the Kubernetes cluster
     let client = Client::try_default().await?;
@@ -155,7 +160,6 @@ async fn get_stats() -> Result<String> {
             // we only want metrics from nodes that are in "Ready" state
             .any(|c| c.status == "True" && c.type_ == "Ready")
         {
-            //let node_name = "ip-11-101-87-205.eu-west-2.compute.internal".to_string();
             node.metadata.name.unwrap()
         } else {
             continue;
@@ -183,7 +187,7 @@ async fn get_stats() -> Result<String> {
                 .get_or_create(&EphemeralStorageLabels {
                     pod: pod.pod_ref.name.clone(),
                     namespace: pod.pod_ref.namespace.clone(),
-                    node: stats.node_name.clone(),
+                    node: stats.node.name.clone(),
                     uid: pod.pod_ref.uid.clone(),
                 })
                 .set(pod.ephemeral_storage.used_bytes);
@@ -192,7 +196,7 @@ async fn get_stats() -> Result<String> {
                 .get_or_create(&EphemeralStorageLabels {
                     pod: pod.pod_ref.name.clone(),
                     namespace: pod.pod_ref.namespace.clone(),
-                    node: stats.node_name.clone(),
+                    node: stats.node.name.clone(),
                     uid: pod.pod_ref.uid.clone(),
                 })
                 .set(pod.ephemeral_storage.available_bytes);
@@ -201,7 +205,7 @@ async fn get_stats() -> Result<String> {
                 .get_or_create(&EphemeralStorageLabels {
                     pod: pod.pod_ref.name,
                     namespace: pod.pod_ref.namespace,
-                    node: stats.node_name.clone(),
+                    node: stats.node.name.clone(),
                     uid: pod.pod_ref.uid,
                 })
                 .set(pod.ephemeral_storage.capacity_bytes);
@@ -214,7 +218,7 @@ async fn get_stats() -> Result<String> {
     Ok(buffer)
 }
 
-async fn get_node_stats(node_name: String) -> Result<NodeStat> {
+async fn get_node_stats(node_name: String) -> Result<NodeStats> {
     let auth_header = if Path::new(SERVICE_ACCOUNT_TOKEN).exists() {
         format!("Bearer {}", fs::read_to_string(SERVICE_ACCOUNT_TOKEN)?)
     } else {
@@ -253,9 +257,7 @@ async fn get_node_stats(node_name: String) -> Result<NodeStat> {
     };
 
     let body = response.text().await?;
-    let mut stats: NodeStat = serde_json::from_str(&body)?;
-    // TODO: do this properly.
-    stats.node_name = node_name;
+    let stats: NodeStats = serde_json::from_str(&body)?;
 
     Ok(stats)
 }
