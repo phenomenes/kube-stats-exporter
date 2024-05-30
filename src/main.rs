@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use hyper::{
     body,
     http::{header, Method, StatusCode},
@@ -151,28 +151,22 @@ async fn get_stats() -> Result<String> {
 
     // iterate over the nodes and get the stats
     for node in nodes.list(&ListParams::default().labels("")).await? {
-        let node_name = if node
-            .status
-            .unwrap()
-            .conditions
-            .unwrap()
-            .into_iter()
-            // we only want metrics from nodes that are in "Ready" state
-            .any(|c| c.status == "True" && c.type_ == "Ready")
-        {
-            node.metadata.name.unwrap()
-        } else {
-            continue;
-        };
-
-        // spawn returns a JoinHandler
-        tasks.push(tokio::spawn(async move {
-            get_node_stats(node_name.clone()).await
-        }));
+        match get_node_name(&node) {
+            Ok(node_name) => {
+                // spawn returns a JoinHandler
+                tasks.push(tokio::spawn(async move {
+                    get_node_stats(node_name.clone()).await
+                }));
+            }
+            Err(err) => {
+                error!("Error getting node name for {node:?}: {err}");
+                continue;
+            }
+        }
     }
 
     for task in tasks {
-        let stats = match task.await.unwrap() {
+        let stats = match task.await? {
             Ok(stats) => stats,
             Err(err) => {
                 error!("{}", err);
@@ -218,6 +212,29 @@ async fn get_stats() -> Result<String> {
     Ok(buffer)
 }
 
+// Gets the node's name
+fn get_node_name(node: &Node) -> Result<String> {
+    node.status
+        .as_ref() // gets a reference from &Option<T> -> Option<&T> without taking ownership
+        .ok_or(anyhow!("failed to get status"))
+        .and_then(|status| {
+            status
+                .conditions
+                .as_ref()
+                .ok_or(anyhow!("failed to get conditions"))
+        })
+        .and_then(|conditions| {
+            if conditions
+                .iter()
+                .any(|c| c.status == "True" && c.type_ == "Ready")
+            {
+                Ok(node.metadata.name.clone().unwrap())
+            } else {
+                Err(anyhow!("failed to get node name"))
+            }
+        })
+}
+
 async fn get_node_stats(node_name: String) -> Result<NodeStats> {
     let auth_header = if Path::new(SERVICE_ACCOUNT_TOKEN).exists() {
         format!("Bearer {}", fs::read_to_string(SERVICE_ACCOUNT_TOKEN)?)
@@ -235,11 +252,10 @@ async fn get_node_stats(node_name: String) -> Result<NodeStats> {
     let client = if Path::new(CLIENT_CERT_BUNDLE).exists() {
         let mut buf = Vec::new();
         fs::File::open(CLIENT_CERT_BUNDLE)?.read_to_end(&mut buf)?;
-        let cert = reqwest::Certificate::from_pem(&buf).unwrap();
+        let cert = reqwest::Certificate::from_pem(&buf)?;
         reqwest::Client::builder()
             .add_root_certificate(cert)
-            .build()
-            .unwrap()
+            .build()?
     } else {
         reqwest::Client::new()
     };
