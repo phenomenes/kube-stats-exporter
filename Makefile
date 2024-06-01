@@ -2,6 +2,7 @@ NAME        = kube-stats-exporter
 IMAGE       = kube-stats-exporter
 TAG         ?= test
 K8S_VERSION = "1.29"
+PROM_OPERATOR_VERSION = "v0.73.2"
 
 clean:
 	cargo clean
@@ -37,3 +38,6 @@ minikube:
 		--kubernetes-version="$(K8S_VERSION)" \
 	        --cpus=2 \
 		--memory=4800MB
+
+servicemonitor-crd:
+	curl -sL https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/$(PROM_OPERATOR_VERSION)/example/prometheus-operator-crd-full/monitoring.coreos.com_servicemonitors.yaml | kubectl create -f -
