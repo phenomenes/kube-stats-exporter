@@ -337,7 +337,7 @@ async fn main() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use k8s_openapi::api::core::v1::{Node, NodeSpec, NodeStatus, NodeCondition};
+    use k8s_openapi::api::core::v1::{Node, NodeCondition, NodeSpec, NodeStatus};
     use kube::api::ObjectMeta;
     use std::collections::BTreeMap;
 
@@ -353,7 +353,7 @@ mod tests {
         let name = "test-node".to_string();
         let labels = BTreeMap::new();
         let annotations = BTreeMap::new();
-        let conditions = vec![NodeCondition{
+        let conditions = vec![NodeCondition {
             status: "True".to_string(),
             type_: "Ready".to_string(),
             ..Default::default()
