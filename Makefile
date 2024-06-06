@@ -7,8 +7,13 @@ PROM_OPERATOR_VERSION = "v0.73.2"
 clean:
 	cargo clean
 
-build:
+build: sanity-check
 	cargo build
+
+sanity-check:
+	cargo fmt --check
+	cargo clippy
+
 
 image: clean-image
 	docker build \
