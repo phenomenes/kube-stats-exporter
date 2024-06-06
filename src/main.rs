@@ -333,3 +333,45 @@ async fn main() -> Result<()> {
         });
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use k8s_openapi::api::core::v1::{Node, NodeSpec, NodeStatus, NodeCondition};
+    use kube::api::ObjectMeta;
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn test_get_node_name() {
+        let node = create_test_node();
+        let result = get_node_name(&node);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "test-node");
+    }
+
+    fn create_test_node() -> Node {
+        let name = "test-node".to_string();
+        let labels = BTreeMap::new();
+        let annotations = BTreeMap::new();
+        let conditions = vec![NodeCondition{
+            status: "True".to_string(),
+            type_: "Ready".to_string(),
+            ..Default::default()
+        }];
+        Node {
+            metadata: ObjectMeta {
+                labels: Some(labels),
+                annotations: Some(annotations),
+                name: Some(name),
+                ..Default::default()
+            },
+            spec: Some(NodeSpec {
+                ..Default::default()
+            }),
+            status: Some(NodeStatus {
+                conditions: Some(conditions),
+                ..Default::default()
+            }),
+        }
+    }
+}
