@@ -14,7 +14,6 @@ sanity-check:
 	cargo fmt --check
 	cargo clippy
 
-
 image: clean-image
 	docker build \
 		--no-cache \

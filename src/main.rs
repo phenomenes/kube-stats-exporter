@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use hyper::{
     body,
     http::{header, Method, StatusCode},
@@ -159,7 +159,7 @@ async fn get_stats() -> Result<String> {
                 }));
             }
             Err(err) => {
-                error!("Error getting node name for {node:?}: {err}");
+                error!("Error getting node name: {err}");
                 continue;
             }
         }
@@ -169,7 +169,7 @@ async fn get_stats() -> Result<String> {
         let stats = match task.await? {
             Ok(stats) => stats,
             Err(err) => {
-                error!("{}", err);
+                error!("Error getting stats: {}", err);
                 continue;
             }
         };
@@ -241,11 +241,10 @@ async fn get_node_stats(node_name: String) -> Result<NodeStats> {
     } else {
         "".to_string()
     };
-    let mut api_url = Url::parse(
-        env::var("API_HOST")
-            .unwrap_or_else(|_| "https://kubernetes.default.svc".to_string())
-            .as_str(),
-    )?;
+    let api_host =
+        env::var("API_HOST").unwrap_or_else(|_| "https://kubernetes.default.svc".to_string());
+    let mut api_url = Url::parse(&api_host)
+        .with_context(|| format!("Failed to parse API_HOST '{}'", api_host))?;
     api_url.set_path(format!("/api/v1/nodes/{}/proxy/stats/summary", node_name,).as_str());
 
     // if there is a certificate, use it on the client connection
